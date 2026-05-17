@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz – Verbes Irréguliers Anglais</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; min-height: 100vh; padding: 1.5rem 1rem; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 0.25rem; }
+  .subtitle { font-size: 14px; color: #666; margin-bottom: 1.5rem; }
+  .container { max-width: 720px; margin: 0 auto; }
+  .section-title { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 10px; }
+  .card { background: #fff; border: 1px solid #e5e5e3; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; }
+  .quick-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .qbtn { font-size: 13px; padding: 5px 13px; border-radius: 8px; border: 1px solid #d5d5d3; background: #fff; color: #555; cursor: pointer; transition: background 0.15s; }
+  .qbtn:hover { background: #f0f0ee; }
+  .verb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; }
+  .vchk { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 8px; border: 1px solid #e5e5e3; cursor: pointer; font-size: 13px; color: #1a1a1a; background: #fff; user-select: none; transition: all 0.15s; }
+  .vchk.sel { border-color: #1D9E75; background: #E1F5EE; color: #085041; }
+  .vnum { font-size: 11px; color: #aaa; min-width: 18px; }
+  .vchk.sel .vnum { color: #0F6E56; }
+  .mode-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .mbtn { font-size: 13px; padding: 6px 14px; border-radius: 8px; border: 1px solid #d5d5d3; background: #fff; color: #555; cursor: pointer; transition: all 0.15s; }
+  .mbtn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .start-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .start-row span { font-size: 14px; color: #888; }
+  button.primary { background: #1a1a1a; color: #fff; border: none; border-radius: 8px; padding: 8px 20px; font-size: 14px; cursor: pointer; transition: opacity 0.15s; }
+  button.primary:hover { opacity: 0.85; }
+  button.ghost { background: transparent; border: 1px solid #d5d5d3; border-radius: 8px; padding: 8px 16px; font-size: 13px; color: #555; cursor: pointer; transition: background 0.15s; }
+  button.ghost:hover { background: #f0f0ee; }
+  .score-bar { display: flex; gap: 10px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .sc { background: #f5f5f3; border-radius: 8px; padding: 0.5rem 1rem; flex: 1; min-width: 70px; text-align: center; }
+  .sc .v { font-size: 20px; font-weight: 600; }
+  .sc .l { font-size: 12px; color: #888; }
+  .progress { height: 4px; background: #e5e5e3; border-radius: 2px; margin-bottom: 1.25rem; }
+  .progress-fill { height: 4px; border-radius: 2px; background: #1D9E75; transition: width 0.3s; }
+  .verb-card { background: #fff; border: 1px solid #e5e5e3; border-radius: 12px; padding: 1.5rem; }
+  .verb-card .inf { font-size: 26px; font-weight: 600; margin-bottom: 4px; }
+  .verb-card .hint { font-size: 13px; color: #888; margin-bottom: 1.25rem; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 1rem 0; }
+  .fields.one { grid-template-columns: 1fr; }
+  .fields.two { grid-template-columns: 1fr 1fr; }
+  .fg label { font-size: 12px; color: #888; display: block; margin-bottom: 5px; font-weight: 500; }
+  .fg input { width: 100%; padding: 8px 10px; border: 1px solid #d5d5d3; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.15s; }
+  .fg input:focus { border-color: #1a1a1a; }
+  .fg input.ok { border-color: #1D9E75; background: #E1F5EE; color: #085041; }
+  .fg input.ko { border-color: #D85A30; background: #FAECE7; color: #4A1B0C; }
+  .feedback { font-size: 14px; margin: 8px 0 4px; min-height: 20px; font-weight: 500; }
+  .feedback.ok { color: #0F6E56; }
+  .feedback.ko { color: #993C1D; }
+  .answer-reveal { font-size: 13px; color: #666; margin-bottom: 12px; line-height: 1.6; }
+  .answer-reveal strong { color: #1a1a1a; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .result-banner { text-align: center; padding: 3rem 1rem; background: #f5f5f3; border-radius: 12px; }
+  .result-banner .big { font-size: 52px; }
+  .result-banner .pct { font-size: 28px; font-weight: 600; margin: 8px 0; }
+  .result-banner p { color: #666; margin-bottom: 1.5rem; font-size: 15px; }
+  .result-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .sep { height: 1px; background: #e5e5e3; margin: 1.25rem 0; }
+  @media (max-width: 500px) { .fields { grid-template-columns: 1fr !important; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🇬🇧 Verbes Irréguliers Anglais</h1>
+  <p class="subtitle">Quiz interactif — 55 verbes</p>
+
+  <div id="setup-screen">
+    <div class="card">
+      <p class="section-title">Sélection rapide</p>
+      <div class="quick-btns">
+        <button class="qbtn" onclick="selectRange(0,5)">5 premiers</button>
+        <button class="qbtn" onclick="selectRange(0,10)">10 premiers</button>
+        <button class="qbtn" onclick="selectRange(0,20)">20 premiers</button>
+        <button class="qbtn" onclick="selectRange(0,30)">30 premiers</button>
+        <button class="qbtn" onclick="selectRange(VERBS.length-10,VERBS.length)">10 derniers</button>
+        <button class="qbtn" onclick="selectRange(VERBS.length-5,VERBS.length)">5 derniers</button>
+        <button class="qbtn" onclick="selectAll()">Tous (55)</button>
+        <button class="qbtn" onclick="selectNone()">Aucun</button>
+      </div>
+      <p class="section-title">Choisir un par un</p>
+      <div class="verb-grid" id="verb-grid"></div>
+    </div>
+
+    <div class="card">
+      <p class="section-title">Mode de quiz</p>
+      <div class="mode-bar">
+        <button class="mbtn active" id="m-complet" onclick="setMode('complet')">Prétérit + Participe + Traduction</button>
+        <button class="mbtn" id="m-preterit" onclick="setMode('preterit')">Prétérit seul</button>
+        <button class="mbtn" id="m-participe" onclick="setMode('participe')">Participe seul</button>
+        <button class="mbtn" id="m-les-deux" onclick="setMode('les-deux')">Prétérit + Participe</button>
+        <button class="mbtn" id="m-fr-en" onclick="setMode('fr-en')">FR → EN (tout)</button>
+      </div>
+      <div class="sep"></div>
+      <div class="start-row">
+        <button class="primary" onclick="startQuiz()">Commencer le quiz →</button>
+        <span id="sel-count">0 verbe(s) sélectionné(s)</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="quiz-screen" style="display:none">
+    <div class="score-bar">
+      <div class="sc"><div class="v" id="s-total">0</div><div class="l">Questions</div></div>
+      <div class="sc"><div class="v" id="s-bon" style="color:#1D9E75">0</div><div class="l">Bonnes</div></div>
+      <div class="sc"><div class="v" id="s-mal" style="color:#D85A30">0</div><div class="l">Erreurs</div></div>
+      <div class="sc"><div class="v" id="s-pct">0%</div><div class="l">Score</div></div>
+    </div>
+    <div class="progress"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+    <div id="question-area"></div>
+  </div>
+</div>
+
+<script>
+const VERBS = [
+  ["(to) be","was/were","been","être"],
+  ["(to) beat","beat","beaten","battre"],
+  ["(to) become","became","become","devenir"],
+  ["(to) begin","began","begun","commencer"],
+  ["(to) break","broke","broken","casser, briser"],
+  ["(to) build","built","built","construire"],
+  ["(to) burn","burnt","burnt","brûler"],
+  ["(to) buy","bought","bought","acheter"],
+  ["(to) catch","caught","caught","attraper"],
+  ["(to) choose","chose","chosen","choisir"],
+  ["(to) come","came","come","venir"],
+  ["(to) cost","cost","cost","coûter"],
+  ["(to) cut","cut","cut","couper"],
+  ["(to) do","did","done","faire"],
+  ["(to) draw","drew","drawn","tirer, dessiner"],
+  ["(to) drink","drank","drunk","boire"],
+  ["(to) drive","drove","driven","conduire"],
+  ["(to) eat","ate","eaten","manger"],
+  ["(to) fall","fell","fallen","tomber"],
+  ["(to) feel","felt","felt","ressentir"],
+  ["(to) fight","fought","fought","combattre"],
+  ["(to) find","found","found","trouver"],
+  ["(to) forget","forgot","forgotten","oublier"],
+  ["(to) get","got","got","obtenir"],
+  ["(to) give","gave","given","donner"],
+  ["(to) go","went","gone","aller"],
+  ["(to) have","had","had","avoir"],
+  ["(to) hear","heard","heard","entendre"],
+  ["(to) keep","kept","kept","garder"],
+  ["(to) know","knew","known","savoir, connaître"],
+  ["(to) learn","learnt","learnt","apprendre"],
+  ["(to) make","made","made","faire, fabriquer"],
+  ["(to) put","put","put","mettre, poser"],
+  ["(to) read","read","read","lire"],
+  ["(to) run","ran","run","courir"],
+  ["(to) say","said","said","dire"],
+  ["(to) see","saw","seen","voir"],
+  ["(to) sell","sold","sold","vendre"],
+  ["(to) send","sent","sent","envoyer"],
+  ["(to) show","showed","shown","montrer"],
+  ["(to) shut","shut","shut","fermer"],
+  ["(to) sing","sang","sung","chanter"],
+  ["(to) sit","sat","sat","s'asseoir, être assis"],
+  ["(to) sleep","slept","slept","dormir"],
+  ["(to) speak","spoke","spoken","parler"],
+  ["(to) stand","stood","stood","être debout"],
+  ["(to) steal","stole","stolen","voler, dérober"],
+  ["(to) swim","swam","swum","nager"],
+  ["(to) take","took","taken","prendre"],
+  ["(to) tell","told","told","raconter"],
+  ["(to) think","thought","thought","penser"],
+  ["(to) understand","understood","understood","comprendre"],
+  ["(to) wear","wore","worn","porter (un vêtement)"],
+  ["(to) win","won","won","gagner"],
+  ["(to) write","wrote","written","écrire"],
+];
+
+let selected = new Set();
+let mode = 'complet';
+let queue = [], quizList = [];
+let total = 0, bon = 0, mal = 0;
+let checked = false;
+let current = null;
+
+function buildGrid() {
+  const grid = document.getElementById('verb-grid');
+  VERBS.forEach((v, i) => {
+    const div = document.createElement('div');
+    div.className = 'vchk';
+    div.id = 'vc-'+i;
+    div.innerHTML = `<span class="vnum">${i+1}</span><span>${v[0].replace('(to) ','')}</span>`;
+    div.onclick = () => toggleVerb(i);
+    grid.appendChild(div);
+  });
+}
+
+function toggleVerb(i) {
+  if(selected.has(i)) { selected.delete(i); document.getElementById('vc-'+i).classList.remove('sel'); }
+  else { selected.add(i); document.getElementById('vc-'+i).classList.add('sel'); }
+  updateCount();
+}
+
+function selectRange(a, b) {
+  for(let i=a;i<b;i++) { selected.add(i); document.getElementById('vc-'+i).classList.add('sel'); }
+  updateCount();
+}
+function selectAll() { VERBS.forEach((_,i) => { selected.add(i); document.getElementById('vc-'+i).classList.add('sel'); }); updateCount(); }
+function selectNone() { selected.clear(); document.querySelectorAll('.vchk').forEach(el => el.classList.remove('sel')); updateCount(); }
+function updateCount() { document.getElementById('sel-count').textContent = selected.size + ' verbe(s) sélectionné(s)'; }
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mbtn').forEach(b => b.classList.remove('active'));
+  document.getElementById('m-'+m).classList.add('active');
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+function startQuiz() {
+  if(selected.size === 0) { alert('Veuillez sélectionner au moins un verbe !'); return; }
+  quizList = shuffle([...selected].map(i => VERBS[i]));
+  queue = [...quizList];
+  total = 0; bon = 0; mal = 0;
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('quiz-screen').style.display = 'block';
+  updateScore(); nextQuestion();
+}
+
+function updateScore() {
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-bon').textContent = bon;
+  document.getElementById('s-mal').textContent = mal;
+  document.getElementById('s-pct').textContent = total ? Math.round(bon/total*100)+'%' : '0%';
+  document.getElementById('prog-fill').style.width = Math.round((quizList.length-queue.length)/quizList.length*100)+'%';
+}
+
+function normalize(s) { return s.trim().toLowerCase().replace(/['']/g,"'").replace(/\s+/g,' '); }
+function accept(u, correct) {
+  const un = normalize(u);
+  return correct.split('/').map(x => normalize(x.trim())).some(a => un === a);
+}
+function acceptFr(u, correct) {
+  const un = normalize(u);
+  const alts = correct.split(',').flatMap(x => x.split('/').map(s => normalize(s.trim())));
+  return alts.some(a => un === a || (a.startsWith(un) && un.length >= 3) || (un.startsWith(a) && a.length >= 3));
+}
+
+function nextQuestion() {
+  checked = false;
+  if(queue.length === 0) { showResult(); return; }
+  current = queue.pop();
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const [inf, pret, part, fr] = current;
+  let fieldsClass = 'fields';
+  let fieldsHTML = '';
+  let hint = '';
+
+  if(mode === 'fr-en') {
+    hint = 'Donnez les 3 formes anglaises';
+    fieldsClass = 'fields';
+    fieldsHTML = `
+      <div class="fg"><label>Infinitif</label><input id="f-inf" type="text" placeholder="(to) …" autocomplete="off"/></div>
+      <div class="fg"><label>Prétérit</label><input id="f-pret" type="text" placeholder="…" autocomplete="off"/></div>
+      <div class="fg"><label>Participe passé</label><input id="f-part" type="text" placeholder="…" autocomplete="off"/></div>`;
+  } else if(mode === 'preterit') {
+    hint = fr;
+    fieldsClass = 'fields one';
+    fieldsHTML = `<div class="fg"><label>Prétérit</label><input id="f-pret" type="text" placeholder="…" autocomplete="off"/></div>`;
+  } else if(mode === 'participe') {
+    hint = fr;
+    fieldsClass = 'fields one';
+    fieldsHTML = `<div class="fg"><label>Participe passé</label><input id="f-part" type="text" placeholder="…" autocomplete="off"/></div>`;
+  } else if(mode === 'les-deux') {
+    hint = fr;
+    fieldsClass = 'fields two';
+    fieldsHTML = `
+      <div class="fg"><label>Prétérit</label><input id="f-pret" type="text" placeholder="…" autocomplete="off"/></div>
+      <div class="fg"><label>Participe passé</label><input id="f-part" type="text" placeholder="…" autocomplete="off"/></div>`;
+  } else {
+    hint = 'Donnez le prétérit, le participe passé et la traduction française';
+    fieldsClass = 'fields';
+    fieldsHTML = `
+      <div class="fg"><label>Prétérit</label><input id="f-pret" type="text" placeholder="…" autocomplete="off"/></div>
+      <div class="fg"><label>Participe passé</label><input id="f-part" type="text" placeholder="…" autocomplete="off"/></div>
+      <div class="fg"><label>Traduction (FR)</label><input id="f-fr" type="text" placeholder="…" autocomplete="off"/></div>`;
+  }
+
+  const questionWord = mode === 'fr-en' ? fr : inf;
+
+  document.getElementById('question-area').innerHTML = `
+    <div class="verb-card">
+      <div class="inf">${questionWord}</div>
+      <div class="hint">${hint}</div>
+      <div class="${fieldsClass}">${fieldsHTML}</div>
+      <div class="feedback" id="fb"></div>
+      <div class="answer-reveal" id="ar"></div>
+      <div class="btn-row">
+        <button class="primary" id="btn-check" onclick="checkAnswer()">Vérifier ↵</button>
+        <button class="ghost" onclick="skipQuestion()">Passer</button>
+        <button class="ghost" onclick="backToSetup()" style="margin-left:auto">← Changer les verbes</button>
+      </div>
+    </div>`;
+
+  const first = document.getElementById('f-inf') || document.getElementById('f-pret') || document.getElementById('f-part');
+  if(first) first.focus();
+  document.querySelectorAll('.verb-card input').forEach(inp => {
+    inp.addEventListener('keydown', e => { if(e.key==='Enter') { checked ? nextQuestion() : checkAnswer(); } });
+  });
+}
+
+function checkAnswer() {
+  if(checked) { nextQuestion(); return; }
+  checked = true;
+  const [inf, pret, part, fr] = current;
+  let allOk = true;
+
+  const checkField = (id, correct, isFr) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const ok = isFr ? acceptFr(el.value, correct) : accept(el.value, correct);
+    el.classList.add(ok ? 'ok' : 'ko');
+    el.readOnly = true;
+    if(!ok) allOk = false;
+  };
+
+  if(mode === 'fr-en') { checkField('f-inf',inf,false); checkField('f-pret',pret,false); checkField('f-part',part,false); }
+  else if(mode === 'preterit') { checkField('f-pret',pret,false); }
+  else if(mode === 'participe') { checkField('f-part',part,false); }
+  else if(mode === 'les-deux') { checkField('f-pret',pret,false); checkField('f-part',part,false); }
+  else { checkField('f-pret',pret,false); checkField('f-part',part,false); checkField('f-fr',fr,true); }
+
+  total++; if(allOk) bon++; else mal++;
+  updateScore();
+
+  const fb = document.getElementById('fb');
+  const ar = document.getElementById('ar');
+  if(allOk) {
+    fb.textContent = '✓ Correct !'; fb.className = 'feedback ok'; ar.innerHTML = '';
+  } else {
+    fb.textContent = '✗ Pas tout à fait…'; fb.className = 'feedback ko';
+    ar.innerHTML = `Réponse : <strong>${inf}</strong> → prét. <strong>${pret}</strong> → part. <strong>${part}</strong> — <strong>${fr}</strong>`;
+  }
+  document.getElementById('btn-check').textContent = 'Question suivante →';
+}
+
+function skipQuestion() { queue.unshift(current); nextQuestion(); }
+
+function backToSetup() {
+  document.getElementById('quiz-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'block';
+}
+
+function showResult() {
+  const pct = total ? Math.round(bon/total*100) : 0;
+  document.getElementById('question-area').innerHTML = `
+    <div class="result-banner">
+      <div class="big">${pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪'}</div>
+      <div class="pct">${pct}%</div>
+      <p>${bon} bonne(s) réponse(s) sur ${total}</p>
+      <div class="result-btns">
+        <button class="primary" onclick="restartSame()">Recommencer ↺</button>
+        <button class="ghost" onclick="backToSetup()">← Changer les verbes</button>
+      </div>
+    </div>`;
+}
+
+function restartSame() {
+  queue = shuffle([...quizList]);
+  total = 0; bon = 0; mal = 0;
+  updateScore(); nextQuestion();
+}
+
+buildGrid();
+</script>
+</body>
+</html>
