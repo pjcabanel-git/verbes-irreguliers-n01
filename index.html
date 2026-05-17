@@ -49,15 +49,23 @@
   .feedback { font-size: 14px; margin: 8px 0 4px; min-height: 20px; font-weight: 500; }
   .feedback.ok { color: #0F6E56; }
   .feedback.ko { color: #993C1D; }
-  .answer-reveal { font-size: 13px; color: #666; margin-bottom: 12px; line-height: 1.6; }
+  .answer-reveal { font-size: 13px; color: #666; margin-bottom: 10px; line-height: 1.6; }
   .answer-reveal strong { color: #1a1a1a; }
-  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
   .result-banner { text-align: center; padding: 3rem 1rem; background: #f5f5f3; border-radius: 12px; }
   .result-banner .big { font-size: 52px; }
   .result-banner .pct { font-size: 28px; font-weight: 600; margin: 8px 0; }
   .result-banner p { color: #666; margin-bottom: 1.5rem; font-size: 15px; }
   .result-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .sep { height: 1px; background: #e5e5e3; margin: 1.25rem 0; }
+  .speak-area { margin-top: 12px; }
+  .speak-btn { display: inline-flex; align-items: center; gap: 6px; background: #f0f7ff; border: 1px solid #b3d4f5; border-radius: 8px; padding: 7px 14px; font-size: 13px; color: #1a5c99; cursor: pointer; transition: background 0.15s; margin-bottom: 10px; }
+  .speak-btn:hover { background: #dbeeff; }
+  .speak-btn.speaking { background: #E1F5EE; border-color: #1D9E75; color: #085041; }
+  .pronunc-box { background: #f9f9f7; border: 1px solid #e5e5e3; border-radius: 8px; padding: 10px 14px; font-size: 14px; color: #444; line-height: 2; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+  .pw { font-weight: 700; color: #1a1a1a; font-size: 15px; }
+  .parrow { color: #bbb; font-size: 13px; }
+  .pfr { color: #888; font-style: italic; font-size: 13px; }
   @media (max-width: 500px) { .fields { grid-template-columns: 1fr !important; } }
 </style>
 </head>
@@ -177,13 +185,75 @@ let queue = [], quizList = [];
 let total = 0, bon = 0, mal = 0;
 let checked = false;
 let current = null;
+let voices = [];
 
+// Load TTS voices
+function loadVoices() { voices = window.speechSynthesis.getVoices(); }
+if (window.speechSynthesis) { loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
+
+function getBestVoice() {
+  const prefs = ['en-GB','en-US','en-AU','en'];
+  for (const lang of prefs) {
+    const v = voices.find(v => v.lang.startsWith(lang));
+    if (v) return v;
+  }
+  return null;
+}
+
+function speakText(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'en-GB';
+  const v = getBestVoice();
+  if (v) utt.voice = v;
+  utt.rate = 0.82;
+  window.speechSynthesis.speak(utt);
+}
+
+function speakRow(verb) {
+  const [inf, pret, part] = verb;
+  const infClean = inf.replace(/^\(to\)\s*/, 'to ');
+  const pretClean = pret.replace('/', ' or ');
+  speakText(`${infClean} ... ${pretClean} ... ${part}`);
+}
+
+function triggerSpeak(verb) {
+  const btn = document.getElementById('speak-btn');
+  if (btn) { btn.classList.add('speaking'); btn.textContent = '🔊 Lecture en cours…'; }
+  speakRow(verb);
+  setTimeout(() => {
+    if (btn) { btn.classList.remove('speaking'); btn.textContent = '🔊 Réécouter'; }
+  }, 4500);
+}
+
+// Normalize input
+function norm(s) { return s.trim().toLowerCase().replace(/['']/g,"'").replace(/\s+/g,' '); }
+
+// Accept infinitive: "(to) be", "to be", "be" all valid
+function acceptInf(userVal, correct) {
+  const u = norm(userVal);
+  const bare = norm(correct).replace(/^\(to\)\s*/, ''); // "be"
+  return u === bare || u === 'to ' + bare || u === '(to) ' + bare;
+}
+
+function acceptStd(userVal, correct) {
+  const u = norm(userVal);
+  return correct.split('/').map(x => norm(x)).some(a => u === a);
+}
+
+function acceptFr(userVal, correct) {
+  const u = norm(userVal);
+  const alts = correct.split(',').flatMap(x => x.split('/').map(s => norm(s)));
+  return alts.some(a => u === a || (a.startsWith(u) && u.length >= 3) || (u.startsWith(a) && a.length >= 3));
+}
+
+// Grid
 function buildGrid() {
   const grid = document.getElementById('verb-grid');
   VERBS.forEach((v, i) => {
     const div = document.createElement('div');
-    div.className = 'vchk';
-    div.id = 'vc-'+i;
+    div.className = 'vchk'; div.id = 'vc-' + i;
     div.innerHTML = `<span class="vnum">${i+1}</span><span>${v[0].replace('(to) ','')}</span>`;
     div.onclick = () => toggleVerb(i);
     grid.appendChild(div);
@@ -191,112 +261,92 @@ function buildGrid() {
 }
 
 function toggleVerb(i) {
-  if(selected.has(i)) { selected.delete(i); document.getElementById('vc-'+i).classList.remove('sel'); }
+  if (selected.has(i)) { selected.delete(i); document.getElementById('vc-'+i).classList.remove('sel'); }
   else { selected.add(i); document.getElementById('vc-'+i).classList.add('sel'); }
   updateCount();
 }
-
-function selectRange(a, b) {
-  for(let i=a;i<b;i++) { selected.add(i); document.getElementById('vc-'+i).classList.add('sel'); }
-  updateCount();
-}
-function selectAll() { VERBS.forEach((_,i) => { selected.add(i); document.getElementById('vc-'+i).classList.add('sel'); }); updateCount(); }
-function selectNone() { selected.clear(); document.querySelectorAll('.vchk').forEach(el => el.classList.remove('sel')); updateCount(); }
-function updateCount() { document.getElementById('sel-count').textContent = selected.size + ' verbe(s) sélectionné(s)'; }
+function selectRange(a,b) { for(let i=a;i<b;i++){selected.add(i);document.getElementById('vc-'+i).classList.add('sel');} updateCount(); }
+function selectAll() { VERBS.forEach((_,i)=>{selected.add(i);document.getElementById('vc-'+i).classList.add('sel');}); updateCount(); }
+function selectNone() { selected.clear(); document.querySelectorAll('.vchk').forEach(el=>el.classList.remove('sel')); updateCount(); }
+function updateCount() { document.getElementById('sel-count').textContent = selected.size+' verbe(s) sélectionné(s)'; }
 
 function setMode(m) {
   mode = m;
-  document.querySelectorAll('.mbtn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.mbtn').forEach(b=>b.classList.remove('active'));
   document.getElementById('m-'+m).classList.add('active');
 }
 
 function shuffle(arr) {
-  const a = [...arr];
+  const a=[...arr];
   for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
   return a;
 }
 
 function startQuiz() {
-  if(selected.size === 0) { alert('Veuillez sélectionner au moins un verbe !'); return; }
-  quizList = shuffle([...selected].map(i => VERBS[i]));
-  queue = [...quizList];
-  total = 0; bon = 0; mal = 0;
-  document.getElementById('setup-screen').style.display = 'none';
-  document.getElementById('quiz-screen').style.display = 'block';
+  if(selected.size===0){alert('Veuillez sélectionner au moins un verbe !');return;}
+  quizList=shuffle([...selected].map(i=>VERBS[i]));
+  queue=[...quizList];
+  total=0;bon=0;mal=0;
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('quiz-screen').style.display='block';
   updateScore(); nextQuestion();
 }
 
 function updateScore() {
-  document.getElementById('s-total').textContent = total;
-  document.getElementById('s-bon').textContent = bon;
-  document.getElementById('s-mal').textContent = mal;
-  document.getElementById('s-pct').textContent = total ? Math.round(bon/total*100)+'%' : '0%';
-  document.getElementById('prog-fill').style.width = Math.round((quizList.length-queue.length)/quizList.length*100)+'%';
-}
-
-function normalize(s) { return s.trim().toLowerCase().replace(/['']/g,"'").replace(/\s+/g,' '); }
-function accept(u, correct) {
-  const un = normalize(u);
-  return correct.split('/').map(x => normalize(x.trim())).some(a => un === a);
-}
-function acceptFr(u, correct) {
-  const un = normalize(u);
-  const alts = correct.split(',').flatMap(x => x.split('/').map(s => normalize(s.trim())));
-  return alts.some(a => un === a || (a.startsWith(un) && un.length >= 3) || (un.startsWith(a) && a.length >= 3));
+  document.getElementById('s-total').textContent=total;
+  document.getElementById('s-bon').textContent=bon;
+  document.getElementById('s-mal').textContent=mal;
+  document.getElementById('s-pct').textContent=total?Math.round(bon/total*100)+'%':'0%';
+  document.getElementById('prog-fill').style.width=Math.round((quizList.length-queue.length)/quizList.length*100)+'%';
 }
 
 function nextQuestion() {
-  checked = false;
-  if(queue.length === 0) { showResult(); return; }
-  current = queue.pop();
+  checked=false;
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  if(queue.length===0){showResult();return;}
+  current=queue.pop();
   renderQuestion();
 }
 
 function renderQuestion() {
-  const [inf, pret, part, fr] = current;
-  let fieldsClass = 'fields';
-  let fieldsHTML = '';
-  let hint = '';
+  const [inf,pret,part,fr]=current;
+  let fcls='fields', fhtml='', hint='';
 
-  if(mode === 'fr-en') {
-    hint = 'Donnez les 3 formes anglaises';
-    fieldsClass = 'fields';
-    fieldsHTML = `
-      <div class="fg"><label>Infinitif</label><input id="f-inf" type="text" placeholder="(to) …" autocomplete="off"/></div>
+  if(mode==='fr-en') {
+    hint='Donnez les 3 formes anglaises';
+    fhtml=`
+      <div class="fg"><label>Infinitif <span style="color:#ccc;font-weight:400">(to be / be / both ok)</span></label><input id="f-inf" type="text" placeholder="(to) …" autocomplete="off"/></div>
       <div class="fg"><label>Prétérit</label><input id="f-pret" type="text" placeholder="…" autocomplete="off"/></div>
       <div class="fg"><label>Participe passé</label><input id="f-part" type="text" placeholder="…" autocomplete="off"/></div>`;
-  } else if(mode === 'preterit') {
-    hint = fr;
-    fieldsClass = 'fields one';
-    fieldsHTML = `<div class="fg"><label>Prétérit</label><input id="f-pret" type="text" placeholder="…" autocomplete="off"/></div>`;
-  } else if(mode === 'participe') {
-    hint = fr;
-    fieldsClass = 'fields one';
-    fieldsHTML = `<div class="fg"><label>Participe passé</label><input id="f-part" type="text" placeholder="…" autocomplete="off"/></div>`;
-  } else if(mode === 'les-deux') {
-    hint = fr;
-    fieldsClass = 'fields two';
-    fieldsHTML = `
+  } else if(mode==='preterit') {
+    hint=fr; fcls='fields one';
+    fhtml=`<div class="fg"><label>Prétérit</label><input id="f-pret" type="text" placeholder="…" autocomplete="off"/></div>`;
+  } else if(mode==='participe') {
+    hint=fr; fcls='fields one';
+    fhtml=`<div class="fg"><label>Participe passé</label><input id="f-part" type="text" placeholder="…" autocomplete="off"/></div>`;
+  } else if(mode==='les-deux') {
+    hint=fr; fcls='fields two';
+    fhtml=`
       <div class="fg"><label>Prétérit</label><input id="f-pret" type="text" placeholder="…" autocomplete="off"/></div>
       <div class="fg"><label>Participe passé</label><input id="f-part" type="text" placeholder="…" autocomplete="off"/></div>`;
   } else {
-    hint = 'Donnez le prétérit, le participe passé et la traduction française';
-    fieldsClass = 'fields';
-    fieldsHTML = `
+    hint='Prétérit · Participe passé · Traduction française';
+    fhtml=`
       <div class="fg"><label>Prétérit</label><input id="f-pret" type="text" placeholder="…" autocomplete="off"/></div>
       <div class="fg"><label>Participe passé</label><input id="f-part" type="text" placeholder="…" autocomplete="off"/></div>
       <div class="fg"><label>Traduction (FR)</label><input id="f-fr" type="text" placeholder="…" autocomplete="off"/></div>`;
   }
 
-  const questionWord = mode === 'fr-en' ? fr : inf;
+  const q = mode==='fr-en' ? fr : inf;
 
-  document.getElementById('question-area').innerHTML = `
+  document.getElementById('question-area').innerHTML=`
     <div class="verb-card">
-      <div class="inf">${questionWord}</div>
+      <div class="inf">${q}</div>
       <div class="hint">${hint}</div>
-      <div class="${fieldsClass}">${fieldsHTML}</div>
+      <div class="${fcls}">${fhtml}</div>
       <div class="feedback" id="fb"></div>
       <div class="answer-reveal" id="ar"></div>
+      <div class="speak-area" id="speak-area"></div>
       <div class="btn-row">
         <button class="primary" id="btn-check" onclick="checkAnswer()">Vérifier ↵</button>
         <button class="ghost" onclick="skipQuestion()">Passer</button>
@@ -304,60 +354,84 @@ function renderQuestion() {
       </div>
     </div>`;
 
-  const first = document.getElementById('f-inf') || document.getElementById('f-pret') || document.getElementById('f-part');
+  const first=document.getElementById('f-inf')||document.getElementById('f-pret')||document.getElementById('f-part');
   if(first) first.focus();
-  document.querySelectorAll('.verb-card input').forEach(inp => {
-    inp.addEventListener('keydown', e => { if(e.key==='Enter') { checked ? nextQuestion() : checkAnswer(); } });
+  document.querySelectorAll('.verb-card input').forEach(inp=>{
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){checked?nextQuestion():checkAnswer();}});
   });
 }
 
+function renderPronunciation(verb) {
+  const [inf,pret,part,fr]=verb;
+  return `
+    <button id="speak-btn" class="speak-btn" onclick="triggerSpeak(current)">🔊 Réécouter</button>
+    <div class="pronunc-box">
+      <span class="pw">${inf}</span>
+      <span class="parrow">→</span>
+      <span class="pw">${pret}</span>
+      <span class="parrow">→</span>
+      <span class="pw">${part}</span>
+      <span class="parrow">—</span>
+      <span class="pfr">${fr}</span>
+    </div>`;
+}
+
 function checkAnswer() {
-  if(checked) { nextQuestion(); return; }
-  checked = true;
-  const [inf, pret, part, fr] = current;
-  let allOk = true;
+  if(checked){nextQuestion();return;}
+  checked=true;
+  const [inf,pret,part,fr]=current;
+  let allOk=true;
 
-  const checkField = (id, correct, isFr) => {
-    const el = document.getElementById(id);
+  function chk(id,correct,type){
+    const el=document.getElementById(id);
     if(!el) return;
-    const ok = isFr ? acceptFr(el.value, correct) : accept(el.value, correct);
-    el.classList.add(ok ? 'ok' : 'ko');
-    el.readOnly = true;
-    if(!ok) allOk = false;
-  };
+    let ok;
+    if(type==='inf') ok=acceptInf(el.value,correct);
+    else if(type==='fr') ok=acceptFr(el.value,correct);
+    else ok=acceptStd(el.value,correct);
+    el.classList.add(ok?'ok':'ko');
+    el.readOnly=true;
+    if(!ok) allOk=false;
+  }
 
-  if(mode === 'fr-en') { checkField('f-inf',inf,false); checkField('f-pret',pret,false); checkField('f-part',part,false); }
-  else if(mode === 'preterit') { checkField('f-pret',pret,false); }
-  else if(mode === 'participe') { checkField('f-part',part,false); }
-  else if(mode === 'les-deux') { checkField('f-pret',pret,false); checkField('f-part',part,false); }
-  else { checkField('f-pret',pret,false); checkField('f-part',part,false); checkField('f-fr',fr,true); }
+  if(mode==='fr-en'){chk('f-inf',inf,'inf');chk('f-pret',pret,'std');chk('f-part',part,'std');}
+  else if(mode==='preterit'){chk('f-pret',pret,'std');}
+  else if(mode==='participe'){chk('f-part',part,'std');}
+  else if(mode==='les-deux'){chk('f-pret',pret,'std');chk('f-part',part,'std');}
+  else{chk('f-pret',pret,'std');chk('f-part',part,'std');chk('f-fr',fr,'fr');}
 
-  total++; if(allOk) bon++; else mal++;
+  total++;if(allOk)bon++;else mal++;
   updateScore();
 
-  const fb = document.getElementById('fb');
-  const ar = document.getElementById('ar');
-  if(allOk) {
-    fb.textContent = '✓ Correct !'; fb.className = 'feedback ok'; ar.innerHTML = '';
+  const fb=document.getElementById('fb');
+  const ar=document.getElementById('ar');
+  if(allOk){
+    fb.textContent='✓ Correct !';fb.className='feedback ok';ar.innerHTML='';
   } else {
-    fb.textContent = '✗ Pas tout à fait…'; fb.className = 'feedback ko';
-    ar.innerHTML = `Réponse : <strong>${inf}</strong> → prét. <strong>${pret}</strong> → part. <strong>${part}</strong> — <strong>${fr}</strong>`;
+    fb.textContent='✗ Pas tout à fait…';fb.className='feedback ko';
+    ar.innerHTML=`Réponse : <strong>${inf}</strong> → <strong>${pret}</strong> → <strong>${part}</strong> — <strong>${fr}</strong>`;
   }
-  document.getElementById('btn-check').textContent = 'Question suivante →';
+  document.getElementById('btn-check').textContent='Question suivante →';
+
+  // Show pronunciation and auto-play
+  const area=document.getElementById('speak-area');
+  if(area){ area.innerHTML=renderPronunciation(current); }
+  setTimeout(()=>triggerSpeak(current), 350);
 }
 
-function skipQuestion() { queue.unshift(current); nextQuestion(); }
+function skipQuestion(){queue.unshift(current);nextQuestion();}
 
-function backToSetup() {
-  document.getElementById('quiz-screen').style.display = 'none';
-  document.getElementById('setup-screen').style.display = 'block';
+function backToSetup(){
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
+  document.getElementById('quiz-screen').style.display='none';
+  document.getElementById('setup-screen').style.display='block';
 }
 
-function showResult() {
-  const pct = total ? Math.round(bon/total*100) : 0;
-  document.getElementById('question-area').innerHTML = `
+function showResult(){
+  const pct=total?Math.round(bon/total*100):0;
+  document.getElementById('question-area').innerHTML=`
     <div class="result-banner">
-      <div class="big">${pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪'}</div>
+      <div class="big">${pct>=80?'🎉':pct>=50?'👍':'💪'}</div>
       <div class="pct">${pct}%</div>
       <p>${bon} bonne(s) réponse(s) sur ${total}</p>
       <div class="result-btns">
@@ -367,10 +441,10 @@ function showResult() {
     </div>`;
 }
 
-function restartSame() {
-  queue = shuffle([...quizList]);
-  total = 0; bon = 0; mal = 0;
-  updateScore(); nextQuestion();
+function restartSame(){
+  queue=shuffle([...quizList]);
+  total=0;bon=0;mal=0;
+  updateScore();nextQuestion();
 }
 
 buildGrid();
